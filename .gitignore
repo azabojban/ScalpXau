@@ -1,0 +1,22 @@
+# Secrets — серверде бөлек .env
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Runtime / trade data — серверде қалады
+data/
+*.log
+*.err.log
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+Desktop.ini
