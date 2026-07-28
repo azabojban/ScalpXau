@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.request import Request, urlopen
+
+import cloudscraper
 
 logger = logging.getLogger(__name__)
+
+_scraper: cloudscraper.CloudScraper | None = None
+
+
+def _get_scraper() -> cloudscraper.CloudScraper:
+    global _scraper
+    if _scraper is None:
+        _scraper = cloudscraper.create_scraper()
+    return _scraper
 
 _CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 _cache: tuple[float, list[dict[str, Any]]] | None = None
@@ -40,10 +49,10 @@ def _fetch_calendar(force: bool = False) -> list[dict[str, Any]]:
     if not force and _cache is not None and now - _cache[0] < 3600:
         return _cache[1]
 
-    req = Request(_CALENDAR_URL, headers={"User-Agent": "ScalpXau/1.0"})
     try:
-        with urlopen(req, timeout=20) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        resp = _get_scraper().get(_CALENDAR_URL, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
         if not isinstance(data, list):
             data = []
     except Exception as exc:

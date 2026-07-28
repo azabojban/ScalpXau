@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +23,7 @@ def _bool(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class XauScalpSettings:
     symbol: str
+    symbol_fallbacks: tuple[str, ...]
     magic: int
     lot: float
     poll_seconds: int
@@ -100,6 +100,14 @@ class XauScalpSettings:
 
         return cls(
             symbol=os.getenv("XAU_SCALP_SYMBOL", os.getenv("MT5_SYMBOL_GOLD", "XAUUSD")).strip(),
+            symbol_fallbacks=tuple(
+                s.strip()
+                for s in os.getenv(
+                    "XAU_SCALP_SYMBOL_FALLBACKS",
+                    "XAUUSD.m,XAUUSD.,GOLD",
+                ).split(",")
+                if s.strip()
+            ),
             magic=int(os.getenv("XAU_SCALP_MAGIC", "202609")),
             lot=float(os.getenv("XAU_SCALP_LOT", os.getenv("DEFAULT_LOT", "0.01"))),
             poll_seconds=int(os.getenv("XAU_SCALP_POLL_SECONDS", "15")),

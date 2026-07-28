@@ -11,6 +11,8 @@ from side import Side
 
 logger = logging.getLogger(__name__)
 
+_last_symbol_warn: dict[str, float] = {}
+
 try:
     import MetaTrader5 as mt5
 except ImportError:
@@ -153,6 +155,43 @@ class MT5Trader:
                 pass
         return self.connect(path)
 
+    def _ensure_symbol(self, symbol: str) -> bool:
+        """symbol_select + retry; warning 60s сайын."""
+        if mt5 is None:
+            return self.dry_run
+        if not self.ensure_connected():
+            return False
+        for _ in range(3):
+            if mt5.symbol_select(symbol, True):
+                return True
+            time.sleep(0.5)
+        err = mt5.last_error()
+        now = time.time()
+        last = _last_symbol_warn.get(symbol, 0.0)
+        if now - last >= 60:
+            _last_symbol_warn[symbol] = now
+            ti = mt5.terminal_info()
+            connected = getattr(ti, "connected", None) if ti else None
+            logger.warning(
+                "symbol_select сәтсіз: %s (%s) terminal_connected=%s — "
+                "MT5 ashik, XAUUSD Market Watch, Algo Trading",
+                symbol,
+                err,
+                connected,
+            )
+        return False
+
+    def resolve_symbol(self, symbol: str, fallbacks: tuple[str, ...] = ()) -> str | None:
+        """Негізгі символ + fallback; табылса MT5 атауын қайтарады."""
+        for name in (symbol, *fallbacks):
+            if not name:
+                continue
+            if self._ensure_symbol(name):
+                if name != symbol:
+                    logger.info("Symbol resolve: %s → %s", symbol, name)
+                return name
+        return None
+
     def sync_pending_times(self, symbol: str, magic: int = 202607) -> None:
         """Бот қайта іске қосылғанда MT5 pending уақыттарын жадқа алу."""
         if self.dry_run or not mt5 or not self._connected:
@@ -186,10 +225,9 @@ class MT5Trader:
     def tick_bid(self, symbol: str) -> Optional[float]:
         if self.dry_run and not self._connected:
             return 3990.0
-        if not mt5 or not self._connected:
+        if mt5 is None:
             return None
-        if not mt5.symbol_select(symbol, True):
-            logger.error("symbol_select сәтсіз: %s", symbol)
+        if not self._ensure_symbol(symbol):
             return None
         tick = mt5.symbol_info_tick(symbol)
         return float(tick.bid) if tick else None
@@ -197,10 +235,9 @@ class MT5Trader:
     def tick_ask(self, symbol: str) -> Optional[float]:
         if self.dry_run and not self._connected:
             return 3992.0
-        if not mt5 or not self._connected:
+        if mt5 is None:
             return None
-        if not mt5.symbol_select(symbol, True):
-            logger.error("symbol_select сәтсіз: %s", symbol)
+        if not self._ensure_symbol(symbol):
             return None
         tick = mt5.symbol_info_tick(symbol)
         return float(tick.ask) if tick else None
@@ -230,8 +267,7 @@ class MT5Trader:
             logger.error("MT5 қосылмаған — ордер жіберілмеді")
             return None
 
-        if not mt5.symbol_select(symbol, True):
-            logger.error("symbol_select сәтсіз: %s", symbol)
+        if not self._ensure_symbol(symbol):
             return None
 
         info = mt5.symbol_info(symbol)
@@ -642,8 +678,7 @@ class MT5Trader:
             return []
         if not self.ensure_connected():
             return []
-        if not mt5.symbol_select(symbol, True):
-            logger.warning("symbol_select сәтсіз: %s (%s)", symbol, mt5.last_error())
+        if not self._ensure_symbol(symbol):
             return []
         raw = mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
         if raw is None:

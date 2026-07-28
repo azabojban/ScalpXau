@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from dataclasses import replace
 
 from xau_scalp.config import XauScalpSettings
 from xau_scalp.risk_guard import required_min_confidence
@@ -23,6 +24,17 @@ async def run_loop(settings: XauScalpSettings) -> None:
     if not trader.connect():
         logger.error("MT5 қосылмады")
         sys.exit(1)
+
+    resolved = trader.resolve_symbol(settings.symbol, settings.symbol_fallbacks)
+    if not resolved:
+        logger.error(
+            "Symbol табылмады: %s (fallbacks=%s) — MT5 Market Watch-қа XAUUSD qosyngyz",
+            settings.symbol,
+            ",".join(settings.symbol_fallbacks) or "—",
+        )
+        sys.exit(1)
+    if resolved != settings.symbol:
+        settings = replace(settings, symbol=resolved)
 
     interval = max(5, settings.poll_seconds)
     zones = ",".join(f"{a}-{b}" for a, b in settings.kill_zones)
