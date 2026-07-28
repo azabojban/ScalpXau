@@ -13,6 +13,26 @@ logger = logging.getLogger(__name__)
 
 _last_symbol_warn: dict[str, float] = {}
 
+_GOLD_EXCLUDE = ("XAG", "SILVER", "PLAT", "PALL")
+
+
+def _gold_name_score(name: str) -> int:
+    """Жоғары = XAUUSD-ға жақын."""
+    compact = name.upper().replace("/", "").replace("_", "").replace(".", "")
+    if any(x in compact for x in _GOLD_EXCLUDE) and "XAU" not in compact:
+        return -1
+    if compact == "XAUUSD":
+        return 100
+    if compact.startswith("XAUUSD"):
+        return 90
+    if "XAU" in compact and "USD" in compact:
+        return 70
+    if "GOLD" in compact:
+        return 50
+    if "XAU" in compact:
+        return 40
+    return -1
+
 try:
     import MetaTrader5 as mt5
 except ImportError:
@@ -137,6 +157,11 @@ class MT5Trader:
                     ai.login,
                     ai.name,
                 )
+            time.sleep(2)
+            try:
+                mt5.symbols_total()
+            except Exception:
+                pass
         return self._connected
 
     def ensure_connected(self, path: Optional[str] = None) -> bool:
@@ -155,16 +180,22 @@ class MT5Trader:
                 pass
         return self.connect(path)
 
-    def _ensure_symbol(self, symbol: str) -> bool:
+    def _ensure_symbol(self, symbol: str, *, quiet: bool = False) -> bool:
         """symbol_select + retry; warning 60s сайын."""
         if mt5 is None:
             return self.dry_run
         if not self.ensure_connected():
             return False
+        if mt5.symbol_info(symbol) is None:
+            return False
         for _ in range(3):
             if mt5.symbol_select(symbol, True):
-                return True
+                tick = mt5.symbol_info_tick(symbol)
+                if tick and float(tick.bid) > 0:
+                    return True
             time.sleep(0.5)
+        if quiet:
+            return False
         err = mt5.last_error()
         now = time.time()
         last = _last_symbol_warn.get(symbol, 0.0)
@@ -174,15 +205,55 @@ class MT5Trader:
             connected = getattr(ti, "connected", None) if ti else None
             logger.warning(
                 "symbol_select сәтсіз: %s (%s) terminal_connected=%s — "
-                "MT5 ashik, XAUUSD Market Watch, Algo Trading",
+                "MT5 ashik, Algo Trading ON",
                 symbol,
                 err,
                 connected,
             )
         return False
 
+    def discover_gold_symbol(self) -> str | None:
+        """Broker символдар тізімінен XAU/GOLD автомат табу."""
+        if mt5 is None or not self.ensure_connected():
+            return None
+
+        all_syms = mt5.symbols_get()
+        if not all_syms:
+            all_syms = mt5.symbols_get("*") or []
+
+        ranked: list[tuple[int, str]] = []
+        disabled = getattr(mt5, "SYMBOL_TRADE_MODE_DISABLED", 0)
+        for sym in all_syms:
+            name = str(sym.name)
+            score = _gold_name_score(name)
+            if score < 0:
+                continue
+            trade_mode = getattr(sym, "trade_mode", None)
+            if trade_mode is not None and trade_mode == disabled:
+                continue
+            ranked.append((score, name))
+
+        ranked.sort(key=lambda x: (-x[0], x[1]))
+        if not ranked:
+            logger.warning("Auto symbol: brokerде XAU/GOLD символ табылмады")
+            return None
+
+        preview = ", ".join(n for _, n in ranked[:8])
+        logger.info("Auto symbol: тексеру (%s) — %s...", len(ranked), preview)
+
+        for _, name in ranked:
+            if self._ensure_symbol(name, quiet=True):
+                logger.info("Symbol auto-discover: %s", name)
+                return name
+
+        logger.warning(
+            "Auto symbol: %s кандидат бар, select/tick сәтсіз — MT5 quotes + Algo Trading",
+            len(ranked),
+        )
+        return None
+
     def resolve_symbol(self, symbol: str, fallbacks: tuple[str, ...] = ()) -> str | None:
-        """Негізгі символ + fallback; табылса MT5 атауын қайтарады."""
+        """Негізгі символ + fallback + broker auto-scan."""
         for name in (symbol, *fallbacks):
             if not name:
                 continue
@@ -190,7 +261,7 @@ class MT5Trader:
                 if name != symbol:
                     logger.info("Symbol resolve: %s → %s", symbol, name)
                 return name
-        return None
+        return self.discover_gold_symbol()
 
     def sync_pending_times(self, symbol: str, magic: int = 202607) -> None:
         """Бот қайта іске қосылғанда MT5 pending уақыттарын жадқа алу."""

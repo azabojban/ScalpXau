@@ -28,9 +28,8 @@ async def run_loop(settings: XauScalpSettings) -> None:
     resolved = trader.resolve_symbol(settings.symbol, settings.symbol_fallbacks)
     if not resolved:
         logger.error(
-            "Symbol табылмады: %s (fallbacks=%s) — MT5 Market Watch-қа XAUUSD qosyngyz",
+            "Symbol табылмады: %s — MT5 ashik, login, Algo Trading, quotes tekseriniz",
             settings.symbol,
-            ",".join(settings.symbol_fallbacks) or "—",
         )
         sys.exit(1)
     if resolved != settings.symbol:
