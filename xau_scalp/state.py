@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date
 from pathlib import Path
 from typing import Any
+
+from xau_scalp.session import utc_today
 
 
 def _load(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {"date": str(date.today()), "trades": 0, "last_trade_ts": 0.0}
+        return {"date": utc_today(), "trades": 0, "last_trade_ts": 0.0}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {"date": str(date.today()), "trades": 0, "last_trade_ts": 0.0}
+        return {"date": utc_today(), "trades": 0, "last_trade_ts": 0.0}
 
 
 def _save(path: Path, state: dict[str, Any]) -> None:
@@ -25,7 +26,7 @@ def _save(path: Path, state: dict[str, Any]) -> None:
 
 def can_trade(path: Path, max_day: int, cooldown_sec: int) -> tuple[bool, str]:
     state = _load(path)
-    today = str(date.today())
+    today = utc_today()
     if state.get("date") != today:
         state = {"date": today, "trades": 0, "last_trade_ts": 0.0}
         _save(path, state)
@@ -43,7 +44,7 @@ def can_trade(path: Path, max_day: int, cooldown_sec: int) -> tuple[bool, str]:
 
 def mark_trade(path: Path) -> None:
     state = _load(path)
-    today = str(date.today())
+    today = utc_today()
     if state.get("date") != today:
         state = {"date": today, "trades": 0, "last_trade_ts": 0.0}
     state["trades"] = int(state.get("trades", 0)) + 1

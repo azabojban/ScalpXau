@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+
+def utc_today() -> str:
+    """Күндік лимиттер — UTC (demo/prop бірдей)."""
+    return str(datetime.now(timezone.utc).date())
+
 _DOW_KZ = ("Дс", "Сс", "Ср", "Бс", "Жм", "Сн", "Жс")
 
 
@@ -24,11 +29,25 @@ def parse_kill_zones(raw: str) -> list[tuple[int, int]]:
     return zones
 
 
-def in_kill_zone(zones: list[tuple[int, int]], now: datetime | None = None) -> bool:
+def in_kill_zone(
+    zones: list[tuple[int, int]],
+    now: datetime | None = None,
+    *,
+    use_local: bool = False,
+) -> bool:
     if not zones:
         return True
-    dt = now or datetime.now(timezone.utc)
-    return any(start <= dt.hour < end for start, end in zones)
+    if use_local:
+        dt = now or datetime.now().astimezone()
+        hour = dt.hour
+    else:
+        dt = now or datetime.now(timezone.utc)
+        hour = dt.hour
+    return any(start <= hour < end for start, end in zones)
+
+
+def kill_zone_clock_label(use_local: bool) -> str:
+    return "local" if use_local else "UTC"
 
 
 def session_name(

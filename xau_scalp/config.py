@@ -35,6 +35,7 @@ class XauScalpSettings:
     max_trades_day: int
     cooldown_sec: int
     kill_zones: list[tuple[int, int]]
+    kill_zone_local: bool
     max_hold_min: int
     breakeven_r: float
     trail_start_r: float
@@ -119,6 +120,7 @@ class XauScalpSettings:
             max_trades_day=int(os.getenv("XAU_SCALP_MAX_TRADES_DAY", "5")),
             cooldown_sec=int(os.getenv("XAU_SCALP_COOLDOWN_SEC", "300")),
             kill_zones=zones,
+            kill_zone_local=_bool("XAU_SCALP_KILL_ZONE_LOCAL", False),
             max_hold_min=int(os.getenv("XAU_SCALP_MAX_HOLD_MIN", "30")),
             breakeven_r=float(os.getenv("XAU_SCALP_BREAKEVEN_R", "0.7")),
             trail_start_r=float(os.getenv("XAU_SCALP_TRAIL_START_R", "1.0")),

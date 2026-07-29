@@ -37,14 +37,18 @@ async def run_loop(settings: XauScalpSettings) -> None:
 
     interval = max(5, settings.poll_seconds)
     zones = ",".join(f"{a}-{b}" for a, b in settings.kill_zones)
+    from xau_scalp.session import kill_zone_clock_label
+
+    clock = kill_zone_clock_label(settings.kill_zone_local)
     logger.info(
-        "XAUUSD pro skalp (%s, poll=%ss, lot=%s, DRY_RUN=%s, magic=%s, zones=%s, smart=%s, invert=%s, adaptive=%s, conf≥%s, dd=-%s)",
+        "XAUUSD pro skalp (%s, poll=%ss, lot=%s, DRY_RUN=%s, magic=%s, zones=%s %s, smart=%s, invert=%s, adaptive=%s, conf≥%s, dd=-%s)",
         settings.symbol,
         interval,
         settings.lot,
         settings.dry_run,
         settings.magic,
         zones,
+        clock,
         "ON" if settings.smart_indicators else "off",
         "ON" if settings.invert_signals and not settings.adaptive_mode and not settings.smart_indicators else "off",
         "ON" if settings.adaptive_mode else "off",
@@ -62,7 +66,6 @@ async def run_loop(settings: XauScalpSettings) -> None:
             "Consensus entry: sweep жоқ → web Strong + EMA/H1 + vote (conf≥%s)",
             settings.consensus_min_confidence,
         )
-
     try:
         while True:
             try:

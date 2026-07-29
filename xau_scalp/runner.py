@@ -41,7 +41,7 @@ def _log_wait_status(trader: MT5Trader, settings: XauScalpSettings) -> None:
     now = time.time()
     if now - _last_wait_log < 900:
         return
-    if not in_kill_zone(settings.kill_zones):
+    if not in_kill_zone(settings.kill_zones, use_local=settings.kill_zone_local):
         return
     _last_wait_log = now
 
@@ -243,7 +243,7 @@ def try_open_scalp(
     trader: MT5Trader,
     settings: XauScalpSettings,
 ) -> bool:
-    if not in_kill_zone(settings.kill_zones):
+    if not in_kill_zone(settings.kill_zones, use_local=settings.kill_zone_local):
         return False
 
     if settings.use_news_filter:

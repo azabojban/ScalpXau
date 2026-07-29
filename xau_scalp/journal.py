@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from xau_scalp.session import utc_today
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +121,7 @@ def slot_stats_report(settings: "XauScalpSettings") -> str:
 
 
 def today_stats(path: Path) -> dict[str, Any]:
-    today = str(date.today())
+    today = utc_today()
     rows = _load_journal(path)
     opens = 0
     wins = 0
