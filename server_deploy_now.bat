@@ -10,11 +10,11 @@ if errorlevel 1 (
     exit /b 1
 )
 
-for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST ^| find "PID:"') do (
-    wmic process where "ProcessId=%%p" get CommandLine 2>nul | find "xau_scalp_main.py" >nul && taskkill /PID %%p /F >nul 2>&1
+for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST 2^>nul ^| findstr /B /C:"PID:"') do (
+    wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /I "xau_scalp_main.py" >nul && taskkill /PID %%p /F >nul 2>&1
 )
 
-timeout /t 2 /nobreak >nul
+"%SystemRoot%\System32\timeout.exe" /t 2 /nobreak >nul
 start "" /MIN cmd /c start.bat
 echo OK — bot qayta ishke qosyldy
 pause
